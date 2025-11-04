@@ -1,0 +1,28 @@
+# Netlify configuration for static deployment
+# Docs: https://docs.netlify.com/routing/redirects/
+
+[build]
+  # No build step; we publish the prebuilt static site under web/
+  publish = "web"
+  command = ""
+
+# Security headers and caching for static assets
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer-when-downgrade"
+    Content-Security-Policy = "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self' https:;"
+
+# Optional redirect for SPA behavior (not enabled by default).
+# Uncomment if you later add client-side routing.
+# [[redirects]]
+#   from = "/*"
+#   to = "/index.html"
+#   status = 200
