@@ -21,15 +21,14 @@ class Drone:
         self.battery = config.DRONE_BATTERY_START
         self.low_battery_threshold = config.DRONE_LOW_BATTERY_THRESHOLD
 
-        # Q-LEARNING: Attributes for Reinforcement Learning
+        # Q-Learning Attributes
         # The Q-Table: maps state (grid label) to action values [Stay, GoToDepot]
-      
         self.q_table = {f"{chr(65+r)}{c+1}": [0.0, 0.0] for r in range(10) for c in range(10)}
-        self.learning_rate = 0.1      # Alpha: How quickly the agent learns.
-        self.discount_factor = 0.9    # Gamma: How much it values future rewards.
-        self.epsilon = 0.2            # Exploration Rate: 20% chance of trying a random action.
+        self.learning_rate = 0.1
+        self.discount_factor = 0.9
+        self.epsilon = 0.2
 
-        # Q-LEARNING: Memory for the last strategic decision
+        # Memory for the last strategic decision
         self.last_strategic_state_label = None
         self.last_strategic_action = None
 
@@ -41,58 +40,44 @@ class Drone:
             self.image = pygame.Surface((30, 30), pygame.SRCALPHA)
             pygame.draw.circle(self.image, (0, 255, 0), (15, 15), 15)
 
-    # NEW Q-LEARNING: This method is called when the drone becomes idle
     def choose_strategic_action(self):
         """Uses Q-table to decide what to do next (Stay or Go to Depot)."""
         current_grid_pos = pixel_to_grid((self.x, self.y))
         self.last_strategic_state_label = f"{chr(65 + current_grid_pos[0])}{current_grid_pos[1] + 1}"
 
-        # Epsilon-Greedy Strategy: Explore or Exploit
         if random.uniform(0, 1) < self.epsilon:
-            # EXPLORE: Choose a random action
             self.last_strategic_action = random.choice([0, 1])
         else:
-            # EXPLOIT: Choose the best-known action from the Q-table
             q_values = self.q_table[self.last_strategic_state_label]
             self.last_strategic_action = q_values.index(max(q_values))
 
-        # Execute the chosen action
-        if self.last_strategic_action == 1:  # Action 1: Go to Depot
-            depot_coords = grid_to_pixel_center((0, 0)) # A1 is our depot
-            self.set_task(depot_coords, depot_coords, is_strategic=True) # Pass special flag
+        if self.last_strategic_action == 1:
+            depot_coords = grid_to_pixel_center((0, 0))
+            self.set_task(depot_coords, depot_coords, is_strategic=True)
             return f"<font color='cyan'>Bot {self.id} is returning to Depot.</font><br>"
         else:
-             return f"<font color='cyan'>Bot {self.id} is staying put.</font><br>"
+            return f"<font color='cyan'>Bot {self.id} is staying put.</font><br>"
 
     def set_task(self, pickup_coords, drop_coords, is_strategic=False):
-        # NEW Q-LEARNING: The learning logic is triggered here
-        
         if self.last_strategic_state_label is not None and not is_strategic:
-            # 1. Calculate Reward
             travel_dist = math.hypot(pickup_coords[0] - self.x, pickup_coords[1] - self.y)
             reward = (config.WINDOW_WIDTH - travel_dist) / 100
 
-            if self.last_strategic_action == 1: # Penalty for moving to depot
+            if self.last_strategic_action == 1:
                 reward -= 5
 
-            # 2. Get old Q-value and future optimal value
             old_q_value = self.q_table[self.last_strategic_state_label][self.last_strategic_action]
             
             current_grid_pos = pixel_to_grid((self.x, self.y))
             next_state_label = f"{chr(65 + current_grid_pos[0])}{current_grid_pos[1] + 1}"
             future_optimal_value = max(self.q_table[next_state_label])
 
-            # 3. Q-Learning Formula
             new_q_value = old_q_value + self.learning_rate * \
                           (reward + self.discount_factor * future_optimal_value - old_q_value)
             
-            # 4. Update Q-Table
             self.q_table[self.last_strategic_state_label][self.last_strategic_action] = new_q_value
-            
-            # 5. Reset for the next learning cycle
             self.last_strategic_state_label = None
         
-        # Original set_task logic
         self.task = {"pickup": pickup_coords, "drop": drop_coords, "is_strategic_move": is_strategic}
         self.state = "to_pickup"
         self.package = False
@@ -132,10 +117,20 @@ class Drone:
     def update(self, obstacle_grid_coords):
         log_message = None
         if self.task is None:
-            # If a drone is truly idle with no task, it shouldn't be in 'to_pickup' state.
             if self.state != 'idle':
                  self.state = 'idle'
             return None
+
+        # DYNAMIC RE-PLANNING LOGIC 
+        if self.path:
+            if self.current_waypoint_index < len(self.path):
+                next_waypoint_pixel = self.path[self.current_waypoint_index]
+                next_waypoint_grid = pixel_to_grid(next_waypoint_pixel)
+                
+                if next_waypoint_grid in obstacle_grid_coords:
+                    self.path = []
+                    log_message = f"<font color='orange'>Bot {self.id}: Obstacle detected! Re-planning path...</font><br>"
+        #  END OF RE-PLANNING LOGIC 
 
         if not self.path:
             start_grid = pixel_to_grid((self.x, self.y))
@@ -154,18 +149,15 @@ class Drone:
 
         reached_destination, move_log = self.move_along_path()
         if move_log:
-             log_message = move_log
+             log_message = (log_message if log_message else "") + move_log
 
         if reached_destination:
-            # MODIFIED Q-LEARNING: Check if it was a strategic move
             if self.task.get('is_strategic_move', False):
                 self.task = None
                 self.state = "idle"
                 self.path = []
-                # Don't make another strategic choice after completing one
                 return log_message
 
-            # Standard delivery logic
             if self.state == "to_pickup":
                 self.state = "to_drop"
                 self.package = True
@@ -177,8 +169,8 @@ class Drone:
                 self.task = None
                 self.state = "idle"
                 self.path = []
-                # NEW Q-LEARNING: This is the trigger for the strategic decision
-                log_message = self.choose_strategic_action()
+                new_log = self.choose_strategic_action()
+                log_message = (log_message if log_message else "") + new_log
         
         return log_message
 
