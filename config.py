@@ -1,24 +1,14 @@
-# ========== WINDOW AND GRID SETTINGS ==========
-WINDOW_WIDTH = 1000
-WINDOW_HEIGHT = 600
-GRID_SIZE = 10
-CELL_SIZE = 60
-LEFT_PANEL_WIDTH = GRID_SIZE * CELL_SIZE
-FPS = 60
+# Grid configuration
+GRID_SIZE = 10          # 10×10 grid
+CELL_SIZE = 60          # each cell = 60 pixels
 
-# ========== COLORS ==========
-OBSTACLE_COLOR = (139, 0, 0)  # Dark Red
-GRID_LINE_COLOR = (100, 100, 100)
-BACKGROUND_COLOR = (10, 10, 20)
-UI_PANEL_COLOR = (30, 30, 30)
-TEXT_COLOR = (180, 180, 180)
-INFO_TEXT_COLOR = (255, 255, 255)
-PATH_COLOR = (255, 255, 0, 100)
+# Simulation parameters
+FPS = 60                # backend won't use this, pygame did
 
-# ========== DRONE SETTINGS ==========
-DRONE_SPEED = 2
-DRONE_BATTERY_START = 100.0
-DRONE_LOW_BATTERY_THRESHOLD = 20
-# Battery drain rates per frame
-DRAIN_RATE_IDLE = 0.02
-DRAIN_RATE_WITH_PACKAGE = 0.03
+# UI layout (used only in original pygame)
+LEFT_PANEL_WIDTH = 400
+WINDOW_WIDTH = GRID_SIZE * CELL_SIZE + LEFT_PANEL_WIDTH
+WINDOW_HEIGHT = GRID_SIZE * CELL_SIZE
+
+# Colors (not used by backend)
+BACKGROUND_COLOR = (245, 245, 245)
