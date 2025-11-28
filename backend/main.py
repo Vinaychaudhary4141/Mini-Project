@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.model import ToggleObstacleRequest, AssignTaskRequest
-from backend.simulation import Simulation
+from model import ToggleObstacleRequest, AssignTaskRequest
+from simulation import Simulation
 
 app = FastAPI(title="Drone Simulation API")
 
