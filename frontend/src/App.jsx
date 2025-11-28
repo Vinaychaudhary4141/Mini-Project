@@ -8,23 +8,18 @@ function App() {
   const intervalRef = useRef(null);
 
   useEffect(() => {
-    // initial fetch
     fetchState();
 
-    // start stepping every 120ms
     intervalRef.current = setInterval(async () => {
       try {
         const res = await axios.post(`${BACKEND}/step`);
         setState(res.data);
-      } catch (err) {
-        // fallback: get state
+      } catch {
         fetchState();
       }
     }, 120);
 
-    return () => {
-      clearInterval(intervalRef.current);
-    };
+    return () => clearInterval(intervalRef.current);
   }, []);
 
   async function fetchState() {
@@ -32,7 +27,7 @@ function App() {
       const res = await axios.get(`${BACKEND}/state`);
       setState(res.data);
     } catch (err) {
-      console.error("fetch state error", err);
+      console.error("Error fetching state:", err);
     }
   }
 
@@ -46,91 +41,133 @@ function App() {
     fetchState();
   }
 
-  if (!state) return <div style={{padding:20}}>Loading...</div>;
+  if (!state)
+    return <div style={{ padding: 20, fontSize: 20 }}>Loading...</div>;
 
   const gridSize = state.grid_size;
   const cellSize = state.cell_size;
 
-  // convert obstacles into set for click detection
-  const obsSet = new Set(state.obstacles.map(o => `${o.row}-${o.col}`));
+  const obsSet = new Set(state.obstacles.map((o) => `${o.row}-${o.col}`));
 
   return (
     <div className="app">
+      {/* LEFT GRID SECTION -------------------------------------------------- */}
       <div className="left">
-        <div className="grid" style={{width: gridSize*cellSize, height: gridSize*cellSize}}>
-          {/* cells as background grid lines (optional) */}
-          {[...Array(gridSize)].map((_, r) => (
+        <div
+          className="grid"
+          style={{
+            width: gridSize * cellSize,
+            height: gridSize * cellSize,
+            position: "relative",
+            border: "2px solid #ccc",
+            background: "#fafafa"
+          }}
+        >
+          {/* GRID CELLS */}
+          {[...Array(gridSize)].map((_, r) =>
             [...Array(gridSize)].map((__, c) => {
               const left = c * cellSize;
               const top = r * cellSize;
-              const label = `${String.fromCharCode(65 + r)}${c+1}`;
+              const label = `${String.fromCharCode(65 + r)}${c + 1}`;
               const key = `cell-${r}-${c}`;
               const isObs = obsSet.has(`${r}-${c}`);
+
               return (
                 <div
                   key={key}
-                  className={"cell"}
+                  className={isObs ? "cell obstacle": "cell"}
                   style={{
-                    left: left,
-                    top: top,
-                    width: cellSize - 2,
-                    height: cellSize - 2,
-                    background: isObs ? "#b22222" : "#fff",
-                    border: "1px solid #eee",
+                    left,
+                    top,
+                    width: cellSize - 1,
+                    height: cellSize - 1,
                     position: "absolute",
+                    background: isObs ? "#d9534f" : "#ffffff",
+                    border: "1px solid #e0e0e0",
+                    fontSize: 12,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: 12,
-                    cursor: "pointer"
+                    cursor: "pointer",
+                    color: "#444",
+                    fontWeight: 500
                   }}
                   onClick={() => toggleObstacle(label)}
-                  title={label}
                 >
-                  <div style={{pointerEvents:"none"}}>{label}</div>
+                  {label}
                 </div>
               );
             })
-          ))}
-          {/* drones */}
-          {state.drones.map(d => (
+          )}
+
+          {/* DRONES ---------------------------------------------------------- */}
+          {state.drones.map((d) => (
             <img
-              key={"d"+d.id}
+              key={"drone-" + d.id}
               src={`${process.env.PUBLIC_URL}/drone_icon.png`}
               alt="drone"
-              className="drone"
               style={{
+                position: "absolute",
                 left: d.x,
                 top: d.y,
-                width: cellSize * 0.8,
-                height: cellSize * 0.8,
-                position: "absolute",
-                transform: "translate(-50%,-50%)",
-                transition: "left 0.12s linear, top 0.12s linear"
+                width: cellSize * 0.75,
+                height: cellSize * 0.75,
+                transform: "translate(-50%, -50%)",
+                transition: "left 0.12s linear, top 0.12s linear",
+                pointerEvents: "none"
               }}
             />
           ))}
         </div>
       </div>
 
+      {/* RIGHT SIDEBAR ------------------------------------------------------ */}
       <div className="right">
-        <h3>Controls</h3>
-        <div>
-          <button onClick={() => axios.post(`${BACKEND}/reset`)}>Reset</button>
-          <button onClick={() => fetchState()}>Refresh</button>
-        </div>
+        <h2>Drone Controller</h2>
 
-        <h4>Assign Task</h4>
+        <button onClick={() => axios.post(`${BACKEND}/reset`)}>Reset</button>
+        <button onClick={fetchState} style={{ marginLeft: 8 }}>
+          Refresh
+        </button>
+
+        <h3 style={{ marginTop: 20 }}>Assign Delivery Task</h3>
         <TaskForm onAssign={assignTask} />
-        <h4>Logs</h4>
+
+        <h3>Activity Log</h3>
         <div className="logs">
-          {state.logs && state.logs.length ? state.logs.slice(-20).reverse().map((l,i) => <div key={i}>{l}</div>) : <div>No logs yet</div>}
+          {state.logs && state.logs.length ? (
+            state.logs
+              .slice(-20)
+              .reverse()
+              .map((log, i) => (
+                <div key={i} className="log-entry">
+                  {log.replace(/<[^>]+>/g, "")}
+                </div>
+              ))
+          ) : (
+            <div>No logs yet</div>
+          )}
         </div>
 
-        <h4>Drones</h4>
+        <h3>Drone Status</h3>
         <ul>
-          {state.drones.map(d => <li key={d.id}>Drone {d.id} — {d.state} — Battery: {d.battery?.toFixed(1) ?? "N/A"}</li>)}
-        </ul>
+  {state.drones.map((d) => (
+    <li key={d.id} style={{ marginBottom: 8 }}>
+      <strong>Drone {d.id}</strong>
+      <div style={{ fontSize: 13, color: "#555" }}>
+        State: {d.state} — Battery: {d.battery?.toFixed(1) ?? "N/A"}
+      </div>
+      <div style={{ fontSize: 13, marginTop: 4 }}>
+        Reward (step):{" "}
+        <span style={{ color: d.reward_step >= 0 ? "green" : "crimson", fontWeight: 600 }}>
+          {d.reward_step >= 0 ? "+" : ""}{d.reward_step?.toFixed(2) ?? "0.00"}
+        </span>
+        {"  "}
+        Total: <span style={{ fontWeight: 700 }}>{d.reward_total?.toFixed(2) ?? "0.00"}</span>
+      </div>
+    </li>
+  ))}
+</ul>
       </div>
     </div>
   );
@@ -138,15 +175,24 @@ function App() {
 
 function TaskForm({ onAssign }) {
   const [text, setText] = useState("");
-  async function submit() {
+
+  function submit() {
     const parts = text.trim().toUpperCase().split(/\s+/);
-    if (parts.length !== 2) { alert("Use format: A1 G8"); return; }
-    await onAssign(parts[0], parts[1]);
+    if (parts.length !== 2) {
+      alert("Format: A1 G8");
+      return;
+    }
+    onAssign(parts[0], parts[1]);
     setText("");
   }
+
   return (
     <div>
-      <input value={text} onChange={e => setText(e.target.value)} placeholder="A1 G8" />
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="A1 G8"
+      />
       <button onClick={submit}>Assign</button>
     </div>
   );
